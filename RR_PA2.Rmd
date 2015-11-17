@@ -1,0 +1,91 @@
+---
+title: "Storms and their effects on the community"
+output: 
+  html_document:
+    keep_md: true
+---
+
+## Synopsis
+
+Immediately after the title, there should be a synopsis which describes and summarizes your analysis in at most 10 complete sentences.
+
+no more than three figures. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
+
+You must show all your code for the work in your analysis document. This may make the document a bit verbose, but that is okay. In general, you should ensure that echo = TRUE for every code chunk (this is the default setting in knitr).
+
+Publish to RPubs
+
+## Data Processing (required)
+
+Describes (in words and code) how the data were loaded into R and processed for analysis. In particular, your analysis must start from the raw CSV file containing the data. You cannot do any preprocessing outside the document. If preprocessing is time-consuming you may consider using the cache = TRUE option for certain code chunks.
+
+```{r}
+fname = "repdata-data-StormData.csv.bz2"
+if(!file.exists(fname)){
+  print("Downloading data...")
+  download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", fname, method = "curl")
+  bzip
+}
+data = read.table(fname, sep=",", header = TRUE)
+```
+
+## Results (required)
+
+Your data analysis must address the following questions:
+
+Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+Population health is determined by fatalities and injuries (per event type)
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+
+# aggregate FATALITIES by EVTYPE and order by the greatest FATALITIES
+fatalByType <- aggregate(FATALITIES ~ EVTYPE, data = data, sum, na.rm = TRUE)
+fatalByType <- fatalByType[order(fatalByType$FATALITIES, decreasing = TRUE), ]
+
+# aggregation, etc using dplyr
+fatalByType <- summarise(group_by(data, EVTYPE), FATALITIES = sum(FATALITIES, na.rm = TRUE))
+fatalByType <- arrange(fatalByType, desc(FATALITIES))
+fatalByType <- filter(fatalByType, FATALITIES > 0)
+
+# show just the top 10
+fatalByType <- fatalByType[1:10,]
+
+barplot(fatalByType$FATALITIES, names.arg = fatalByType$EVTYPE)
+
+library(ggplot2)
+
+qplot(
+  EVTYPE, 
+  FATALITIES, 
+  data = fatalByType,
+  fill = EVTYPE,
+  geom = "bar",
+  stat = "identity", 
+  xlab = "Year", 
+  ylab = "PM2.5 Emissions (tons)", 
+  main = "PM2.5 Emissions for Baltimore City by Source Type"
+  )
+
+qplot(
+    EVTYPE, 
+    FATALITIES, 
+    data = fatalByType,
+    geom = "bar",
+    stat = "identity", 
+    xlab = "Year", 
+    ylab = "PM2.5 Emissions (1000's tons)", 
+    main = "USA Total Coal Combustion-Related PM2.5 Emissions"
+)
+
+injuryByType <- aggregate(INJURIES ~ EVTYPE, data = data, sum, na.rm = TRUE)
+```
+
+Across the United States, which types of events have the greatest economic consequences?
+
+Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+
+
+Alphabetical characters used to signify magnitude
+include "K" for thousands, "M" for millions, and "B" for billions
