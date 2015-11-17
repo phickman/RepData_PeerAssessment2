@@ -19,12 +19,11 @@ Publish to RPubs
 
 Describes (in words and code) how the data were loaded into R and processed for analysis. In particular, your analysis must start from the raw CSV file containing the data. You cannot do any preprocessing outside the document. If preprocessing is time-consuming you may consider using the cache = TRUE option for certain code chunks.
 
-```{r}
+```{r cache=TRUE}
 fname = "repdata-data-StormData.csv.bz2"
 if(!file.exists(fname)){
   print("Downloading data...")
   download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", fname, method = "curl")
-  bzip
 }
 data = read.table(fname, sep=",", header = TRUE)
 ```
@@ -45,9 +44,9 @@ fatalByType <- aggregate(FATALITIES ~ EVTYPE, data = data, sum, na.rm = TRUE)
 fatalByType <- fatalByType[order(fatalByType$FATALITIES, decreasing = TRUE), ]
 
 # aggregation, etc using dplyr
-fatalByType <- summarise(group_by(data, EVTYPE), FATALITIES = sum(FATALITIES, na.rm = TRUE))
-fatalByType <- arrange(fatalByType, desc(FATALITIES))
-fatalByType <- filter(fatalByType, FATALITIES > 0)
+#fatalByType <- summarise(group_by(data, EVTYPE), FATALITIES = sum(FATALITIES, na.rm = TRUE))
+#fatalByType <- arrange(fatalByType, desc(FATALITIES))
+#fatalByType <- filter(fatalByType, FATALITIES > 0)
 
 # show just the top 10
 fatalByType <- fatalByType[1:10,]
@@ -78,8 +77,50 @@ qplot(
     ylab = "PM2.5 Emissions (1000's tons)", 
     main = "USA Total Coal Combustion-Related PM2.5 Emissions"
 )
+```
 
+And injuries by event type
+
+```{r}
 injuryByType <- aggregate(INJURIES ~ EVTYPE, data = data, sum, na.rm = TRUE)
+injuryByType <- injuryByType[order(injuryByType$INJURIES, decreasing = TRUE), ]
+
+# show just the top 10
+injuryByType <- injuryByType[1:10,]
+
+barplot(injuryByType$INJURIES, names.arg = injuryByType$EVTYPE)
+
+# injuries and fatalities
+fiByType <- aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE , data, sum, na.rm = TRUE)
+fiByType <- fiByType[order(fiByType$INJURIES+fiByType$FATALITIES, decreasing = TRUE), ]
+
+qplot(
+  EVTYPE, 
+  FATALITIES+INJURIES, 
+  data = fiByType[1:10,],
+  fill = EVTYPE,
+  geom = "bar",
+  stat = "identity", 
+  xlab = "Event Type", 
+  ylab = "Impact", 
+  main = "Events"
+  ) + coord_flip()
+
+library(reshape)
+mfi <- melt(fiByType[1:10,])
+
+qplot(
+  EVTYPE, 
+  value, 
+  data = mfi,
+  fill = variable,
+  geom = "bar",
+  stat = "identity", 
+  xlab = "Event Type", 
+  ylab = "Impact", 
+  main = "Events"
+  ) + coord_flip()
+
 ```
 
 Across the United States, which types of events have the greatest economic consequences?
@@ -89,3 +130,9 @@ Consider writing your report as if it were to be read by a government or municip
 
 Alphabetical characters used to signify magnitude
 include "K" for thousands, "M" for millions, and "B" for billions
+
+```{r}
+# $ PROPDMGEXP: Factor w/ 19 levels
+# $ CROPDMGEXP: Factor w/ 9 levels
+
+```
