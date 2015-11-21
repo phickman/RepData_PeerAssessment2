@@ -11,19 +11,18 @@ Storms and other severe weather events can cause both public health and economic
 
 This analysis investigated the economic cost and impact on public health of storms and other severe weather events using the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. 
 
-Over the 60 years that data has been collected, Tornadoes have had the greatest impact to public health (injuries and fatalities) and economic activity (property and crop damage).
+Over the 60 years (1950-2011) that data has been collected, Tornadoes have had the greatest impact to public health (injuries and fatalities) and floods have inflicted the greatest property damage and droughts are responsible for the greatest crop damage.
 
 ## Data Processing
 
 The data analysed is in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. The file is downloaded from the course web site and loaded for processing.
 
 Further information about the file's structure can be found at the following locations:
-National Weather Service Storm Data Documentation
-https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf
-National Climatic Data Center Storm Events FAQ
-https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf
 
-The events in the database start in the year 1950 and end in November 2011.
+- National Weather Service Storm Data Documentation
+- https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf
+- National Climatic Data Center Storm Events FAQ
+- https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf
 
 ```{r cache=TRUE}
 fname = "repdata-data-StormData.csv.bz2"
@@ -37,15 +36,6 @@ data = read.table(fname, sep=",", header = TRUE)
 Population health is defined as fatalities and injuries (per event type).  The fatalitiies and injuries for each event type are summed together for later display.
 
 ```{r}
-library(reshape)
-
-# injuries and fatalities
-fiByType <- aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE , data, sum, na.rm = TRUE)
-fiByType <- fiByType[order(fiByType$INJURIES+fiByType$FATALITIES, decreasing = TRUE), ]
-fiByType <- fiByType[1:10,] # interest in top 10
-
-popHealth <- melt(fiByType)
-
 # fatalities
 fByType <- aggregate(FATALITIES ~ EVTYPE , data, sum, na.rm = TRUE)
 fByType <- fByType[order(fByType$FATALITIES, decreasing = TRUE), ]
@@ -59,9 +49,7 @@ iByType <- iByType[1:10,] # interest in top 10
 
 Economic consequences is defined as property and crop damage (per event type).  The property and crop damage for each event type are summed together for later display.
 
-PROPDMGEXP and CROPDMGEXP indicates the units for PROPDMG and CROPDMG.
-Alphabetical characters used to signify magnitude
-include "K" for thousands, "M" for millions, and "B" for billions
+PROPDMGEXP and CROPDMGEXP indicate the units for PROPDMG and CROPDMG.
 
 ```{r}
 # $ PROPDMGEXP: Factor w/ 19 levels
@@ -73,51 +61,10 @@ unique(data$CROPDMGEXP)
 Given the magnitude (EXP) column, calculate the total cost impact.
 
 ```{r}
-calcDamage <- function(val, exp) {
-    
-    if("b" == exp | "B" == exp)
-    {
-        m <- 10^9
-    } 
-    else if("m" == exp | "M" == exp)
-    {
-        m <- 10^6
-    }
-    else if("k" == exp | "K" == exp)
-    {
-        m <- 10^3
-    }
-    else if("h" == exp | "H" == exp)
-    {
-        m <- 10^2
-    }
-    else if(exp %in% c("1","2","3","4","5","6","7","8"))
-    {
-        m <- 10
-    }
-    else if(exp %in% c("-","?",""))
-    {
-        m <- 0
-    }
-    else
-    {
-        m <- 1
-    }
-    
-    return(val*m)
-}
+library(car)
+data$PROPDMG_TOT <- data$PROPDMG*as.numeric(recode(data$PROPDMGEXP, "'0'=10;'1'=10;'2'=10;'3'=10;'4'=10;'5'=10;'6'=10;'7'=10;'8'=10;'B'=10^9;'h'=10^2;'H'=10^2;'K'=10^3;'m'=10^6;'M'=10^6;'-'=0;'?'=0;'+'=1", as.factor.result = FALSE))
 
-data$PROPDMG_TOT <- mapply(FUN = calcDamage, data$PROPDMG, data$PROPDMG)
-data$CROPDMG_TOT <- mapply(FUN = calcDamage, data$CROPDMG, data$CROPDMG)
-
-#library(car)
-#data$PROPDMG_TOT <- data$PROPDMG*as.numeric(recode(data$PROPDMGEXP, "'0'=1;'1'=1;'2'=1;'3'=1;'4'=1;'5'=1;'6'=1;'7'=1;'8'=1;'B'=1000000000;'h'=100;'H'=100;'K'=1000;'m'=1000000;'M'=1000000;'-'=0;'?'=0;'+'=0", as.factor.result=FALSE))
-
-#data$CROPDMG_TOT <- data$CROPDMG*as.numeric(recode(data$CROPDMGEXP, "'0'=1;'2'=1;'B'=1000000000;'k'=1000;'K'=1000;'m'=1000000;'M'=1000000;''=0;'?'=0", as.factor.result=FALSE))
-
-ecByType <- aggregate(cbind(PROPDMG_TOT, CROPDMG_TOT) ~ EVTYPE , data, sum, na.rm = TRUE)
-ecByType <- ecByType[order(ecByType$CROPDMG_TOT + ecByType$PROPDMG_TOT, decreasing = TRUE), ]
-econConseq <- melt(ecByType[1:10,])
+data$CROPDMG_TOT <- data$CROPDMG*as.numeric(recode(data$CROPDMGEXP, "'0'=10;'2'=10;'B'=10^9;'k'=10^3;'K'=10^3;'m'=10^6;'M'=10^6;''=0;'?'=0", as.factor.result = FALSE))
 
 # property damage
 pByType <- aggregate(PROPDMG_TOT ~ EVTYPE , data, sum, na.rm = TRUE)
@@ -134,68 +81,30 @@ cByType <- cByType[1:10,] # interest in top 10
 
 Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
 
-Population Health was created earlier by combining injuries and fatalities.  The combined dataset is displayed in the stacked bar graph below.
-
 The impact of tornadoes on public health is by far the greatest of all weather event types.
 
 ```{r}
 # plots appear next to each other, shrink the text to fit the event labels and make some room at the bottom
-par(mfrow = c(1,2), mar = c(8,4,4,2), cex.axis = 0.7)
+par(mfrow = c(1,2), mar = c(8,4,4,2), cex.axis = 0.7, oma = c(0, 0, 2, 0))
 
-barplot(fByType$FATALITIES, names.arg = fByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for fatalities", ylab = "Fatalities")
+barplot(fByType$FATALITIES, names.arg = fByType$EVTYPE, las = 3, col = "light green", main = "Fatalities", ylab = "Fatalities")
 
-barplot(iByType$INJURIES, names.arg = iByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for injuries", ylab = "Injuries")
+barplot(iByType$INJURIES, names.arg = iByType$EVTYPE, las = 3, col = "light green", main = "Injuries", ylab = "Injuries")
 
-library(ggplot2)
-
-qplot(
-  EVTYPE, 
-  FATALITIES, 
-  data = fByType,
-  geom = "bar",
-  stat = "identity", 
-  xlab = "Event Type", 
-  ylab = "Impact", 
-  main = "Events"
-  ) + coord_flip()
-
-qplot(
-  EVTYPE, 
-  value, 
-  data = popHealth,
-  fill = variable,
-  geom = "bar",
-  stat = "identity", 
-  xlab = "Event Type", 
-  ylab = "Impact", 
-  main = "Events"
-  ) + coord_flip()
+title("Top 10 Weather Events (1950-2011)", outer = TRUE)
 ```
 
 Across the United States, which types of events have the greatest economic consequences?
 
-Economic consequences was created earlier by combining property and crop damage.  The combined dataset is displayed in the stacked bar graph below.
-
-The economic consequences of tornadoes is by far the greatest of all weather event types.
+Floods have had the greatest economic impact on property and drought has had the greatest economic impact on crops.
 
 ```{r}
 # plots appear next to each other, shrink the text to fit the event labels and make some room at the bottom
-par(mfrow = c(1,2), mar = c(8,4,4,2), cex.axis = 0.7)
+par(mfrow = c(1,2), mar = c(8,4,4,2), cex.axis = 0.7, oma = c(0, 0, 2, 0))
 
-barplot(pByType$PROPDMG_TOT/10^9, names.arg = pByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for Property Damage", ylab = "Cost USD (billion)")
+barplot(pByType$PROPDMG_TOT/10^9, names.arg = pByType$EVTYPE, las = 3, col = "light green", main = "Property Damage", ylab = "Cost USD (billion)")
 
-barplot(cByType$CROPDMG_TOT/10^9, names.arg = cByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for Crop Damage", ylab = "Cost USD (billion)")
+barplot(cByType$CROPDMG_TOT/10^9, names.arg = cByType$EVTYPE, las = 3, col = "light green", main = "Crop Damage", ylab = "Cost USD (billion)")
 
-
-qplot(
-  EVTYPE, 
-  value, 
-  data = econConseq,
-  fill = variable,
-  geom = "bar",
-  stat = "identity", 
-  xlab = "Event Type", 
-  ylab = "Impact", 
-  main = "Events"
-  ) + coord_flip()
+title("Top 10 Weather Events (1950-2011)", outer = TRUE)
 ```
