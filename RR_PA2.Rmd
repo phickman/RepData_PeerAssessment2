@@ -1,23 +1,29 @@
 ---
-title: "Storms and their effects on the community"
+title: "Storms and their impact on the community"
 output: 
   html_document:
-    keep_md: true
+    keep_md: false
 ---
 
 ## Synopsis
 
-Immediately after the title, there should be a synopsis which describes and summarizes your analysis in at most 10 complete sentences.
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
 
-no more than three figures. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
+This analysis investigated the economic cost and impact on public health of storms and other severe weather events using the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. 
 
-You must show all your code for the work in your analysis document. This may make the document a bit verbose, but that is okay. In general, you should ensure that echo = TRUE for every code chunk (this is the default setting in knitr).
+Over the 60 years that data has been collected, Tornadoes have had the greatest impact to public health (injuries and fatalities) and economic activity (property and crop damage).
 
-Publish to RPubs
+## Data Processing
 
-## Data Processing (required)
+The data analysed is in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. The file is downloaded from the course web site and loaded for processing.
 
-Describes (in words and code) how the data were loaded into R and processed for analysis. In particular, your analysis must start from the raw CSV file containing the data. You cannot do any preprocessing outside the document. If preprocessing is time-consuming you may consider using the cache = TRUE option for certain code chunks.
+Further information about the file's structure can be found at the following locations:
+National Weather Service Storm Data Documentation
+https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf
+National Climatic Data Center Storm Events FAQ
+https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf
+
+The events in the database start in the year 1950 and end in November 2011.
 
 ```{r cache=TRUE}
 fname = "repdata-data-StormData.csv.bz2"
@@ -28,77 +34,124 @@ if(!file.exists(fname)){
 data = read.table(fname, sep=",", header = TRUE)
 ```
 
-## Results (required)
+Population health is defined as fatalities and injuries (per event type).  The fatalitiies and injuries for each event type are summed together for later display.
 
-Your data analysis must address the following questions:
+```{r}
+library(reshape)
+
+# injuries and fatalities
+fiByType <- aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE , data, sum, na.rm = TRUE)
+fiByType <- fiByType[order(fiByType$INJURIES+fiByType$FATALITIES, decreasing = TRUE), ]
+fiByType <- fiByType[1:10,] # interest in top 10
+
+popHealth <- melt(fiByType)
+
+# fatalities
+fByType <- aggregate(FATALITIES ~ EVTYPE , data, sum, na.rm = TRUE)
+fByType <- fByType[order(fByType$FATALITIES, decreasing = TRUE), ]
+fByType <- fByType[1:10,] # interest in top 10
+
+# injuries
+iByType <- aggregate(INJURIES ~ EVTYPE , data, sum, na.rm = TRUE)
+iByType <- iByType[order(iByType$INJURIES, decreasing = TRUE), ]
+iByType <- iByType[1:10,] # interest in top 10
+```
+
+Economic consequences is defined as property and crop damage (per event type).  The property and crop damage for each event type are summed together for later display.
+
+PROPDMGEXP and CROPDMGEXP indicates the units for PROPDMG and CROPDMG.
+Alphabetical characters used to signify magnitude
+include "K" for thousands, "M" for millions, and "B" for billions
+
+```{r}
+# $ PROPDMGEXP: Factor w/ 19 levels
+unique(data$PROPDMGEXP)
+# $ CROPDMGEXP: Factor w/ 9 levels
+unique(data$CROPDMGEXP)
+```
+
+Given the magnitude (EXP) column, calculate the total cost impact.
+
+```{r}
+calcDamage <- function(val, exp) {
+    
+    if("b" == exp | "B" == exp)
+    {
+        m <- 10^9
+    } 
+    else if("m" == exp | "M" == exp)
+    {
+        m <- 10^6
+    }
+    else if("k" == exp | "K" == exp)
+    {
+        m <- 10^3
+    }
+    else if("h" == exp | "H" == exp)
+    {
+        m <- 10^2
+    }
+    else if(exp %in% c("1","2","3","4","5","6","7","8"))
+    {
+        m <- 10
+    }
+    else if(exp %in% c("-","?",""))
+    {
+        m <- 0
+    }
+    else
+    {
+        m <- 1
+    }
+    
+    return(val*m)
+}
+
+data$PROPDMG_TOT <- mapply(FUN = calcDamage, data$PROPDMG, data$PROPDMG)
+data$CROPDMG_TOT <- mapply(FUN = calcDamage, data$CROPDMG, data$CROPDMG)
+
+#library(car)
+#data$PROPDMG_TOT <- data$PROPDMG*as.numeric(recode(data$PROPDMGEXP, "'0'=1;'1'=1;'2'=1;'3'=1;'4'=1;'5'=1;'6'=1;'7'=1;'8'=1;'B'=1000000000;'h'=100;'H'=100;'K'=1000;'m'=1000000;'M'=1000000;'-'=0;'?'=0;'+'=0", as.factor.result=FALSE))
+
+#data$CROPDMG_TOT <- data$CROPDMG*as.numeric(recode(data$CROPDMGEXP, "'0'=1;'2'=1;'B'=1000000000;'k'=1000;'K'=1000;'m'=1000000;'M'=1000000;''=0;'?'=0", as.factor.result=FALSE))
+
+ecByType <- aggregate(cbind(PROPDMG_TOT, CROPDMG_TOT) ~ EVTYPE , data, sum, na.rm = TRUE)
+ecByType <- ecByType[order(ecByType$CROPDMG_TOT + ecByType$PROPDMG_TOT, decreasing = TRUE), ]
+econConseq <- melt(ecByType[1:10,])
+
+# property damage
+pByType <- aggregate(PROPDMG_TOT ~ EVTYPE , data, sum, na.rm = TRUE)
+pByType <- pByType[order(pByType$PROPDMG_TOT, decreasing = TRUE), ]
+pByType <- pByType[1:10,] # interest in top 10
+
+# crop damage
+cByType <- aggregate(CROPDMG_TOT ~ EVTYPE , data, sum, na.rm = TRUE)
+cByType <- cByType[order(cByType$CROPDMG_TOT, decreasing = TRUE), ]
+cByType <- cByType[1:10,] # interest in top 10
+```
+
+## Results
 
 Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
 
-Population health is determined by fatalities and injuries (per event type)
+Population Health was created earlier by combining injuries and fatalities.  The combined dataset is displayed in the stacked bar graph below.
+
+The impact of tornadoes on public health is by far the greatest of all weather event types.
 
 ```{r}
-library(dplyr, warn.conflicts = FALSE)
+# plots appear next to each other, shrink the text to fit the event labels and make some room at the bottom
+par(mfrow = c(1,2), mar = c(8,4,4,2), cex.axis = 0.7)
 
-# aggregate FATALITIES by EVTYPE and order by the greatest FATALITIES
-fatalByType <- aggregate(FATALITIES ~ EVTYPE, data = data, sum, na.rm = TRUE)
-fatalByType <- fatalByType[order(fatalByType$FATALITIES, decreasing = TRUE), ]
+barplot(fByType$FATALITIES, names.arg = fByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for fatalities", ylab = "Fatalities")
 
-# aggregation, etc using dplyr
-#fatalByType <- summarise(group_by(data, EVTYPE), FATALITIES = sum(FATALITIES, na.rm = TRUE))
-#fatalByType <- arrange(fatalByType, desc(FATALITIES))
-#fatalByType <- filter(fatalByType, FATALITIES > 0)
-
-# show just the top 10
-fatalByType <- fatalByType[1:10,]
-
-barplot(fatalByType$FATALITIES, names.arg = fatalByType$EVTYPE)
+barplot(iByType$INJURIES, names.arg = iByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for injuries", ylab = "Injuries")
 
 library(ggplot2)
 
 qplot(
   EVTYPE, 
   FATALITIES, 
-  data = fatalByType,
-  fill = EVTYPE,
-  geom = "bar",
-  stat = "identity", 
-  xlab = "Year", 
-  ylab = "PM2.5 Emissions (tons)", 
-  main = "PM2.5 Emissions for Baltimore City by Source Type"
-  )
-
-qplot(
-    EVTYPE, 
-    FATALITIES, 
-    data = fatalByType,
-    geom = "bar",
-    stat = "identity", 
-    xlab = "Year", 
-    ylab = "PM2.5 Emissions (1000's tons)", 
-    main = "USA Total Coal Combustion-Related PM2.5 Emissions"
-)
-```
-
-And injuries by event type
-
-```{r}
-injuryByType <- aggregate(INJURIES ~ EVTYPE, data = data, sum, na.rm = TRUE)
-injuryByType <- injuryByType[order(injuryByType$INJURIES, decreasing = TRUE), ]
-
-# show just the top 10
-injuryByType <- injuryByType[1:10,]
-
-barplot(injuryByType$INJURIES, names.arg = injuryByType$EVTYPE)
-
-# injuries and fatalities
-fiByType <- aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE , data, sum, na.rm = TRUE)
-fiByType <- fiByType[order(fiByType$INJURIES+fiByType$FATALITIES, decreasing = TRUE), ]
-
-qplot(
-  EVTYPE, 
-  FATALITIES+INJURIES, 
-  data = fiByType[1:10,],
-  fill = EVTYPE,
+  data = fByType,
   geom = "bar",
   stat = "identity", 
   xlab = "Event Type", 
@@ -106,13 +159,10 @@ qplot(
   main = "Events"
   ) + coord_flip()
 
-library(reshape)
-mfi <- melt(fiByType[1:10,])
-
 qplot(
   EVTYPE, 
   value, 
-  data = mfi,
+  data = popHealth,
   fill = variable,
   geom = "bar",
   stat = "identity", 
@@ -120,19 +170,32 @@ qplot(
   ylab = "Impact", 
   main = "Events"
   ) + coord_flip()
-
 ```
 
 Across the United States, which types of events have the greatest economic consequences?
 
-Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+Economic consequences was created earlier by combining property and crop damage.  The combined dataset is displayed in the stacked bar graph below.
 
-
-Alphabetical characters used to signify magnitude
-include "K" for thousands, "M" for millions, and "B" for billions
+The economic consequences of tornadoes is by far the greatest of all weather event types.
 
 ```{r}
-# $ PROPDMGEXP: Factor w/ 19 levels
-# $ CROPDMGEXP: Factor w/ 9 levels
+# plots appear next to each other, shrink the text to fit the event labels and make some room at the bottom
+par(mfrow = c(1,2), mar = c(8,4,4,2), cex.axis = 0.7)
 
+barplot(pByType$PROPDMG_TOT/10^9, names.arg = pByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for Property Damage", ylab = "Cost USD (billion)")
+
+barplot(cByType$CROPDMG_TOT/10^9, names.arg = cByType$EVTYPE, las = 3, col = "light green", main = "Top 10 Events for Crop Damage", ylab = "Cost USD (billion)")
+
+
+qplot(
+  EVTYPE, 
+  value, 
+  data = econConseq,
+  fill = variable,
+  geom = "bar",
+  stat = "identity", 
+  xlab = "Event Type", 
+  ylab = "Impact", 
+  main = "Events"
+  ) + coord_flip()
 ```
