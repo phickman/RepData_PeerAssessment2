@@ -11,3 +11,11 @@
 # produced vignettes
 vignettes/*.html
 vignettes/*.pdf
+
+RR_PA2_cache
+RR_PA2_files
+rsconnect
+t_cache
+t_files
+repdata-data-StormData.csv.bz2
+RR_PA2.html
