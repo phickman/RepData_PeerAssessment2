@@ -1,5 +1,7 @@
 ---
 title: "Storms and their impact on the community"
+author: "Paul Hickman"
+date: "`r Sys.Date()`"
 output: 
   html_document:
     keep_md: false
@@ -9,9 +11,7 @@ output:
 
 Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
 
-This analysis investigated the economic cost and impact on public health of storms and other severe weather events using the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. 
-
-Over the 60 years (1950-2011) that data has been collected, Tornadoes have had the greatest impact to public health (injuries and fatalities) and floods have inflicted the greatest property damage and droughts are responsible for the greatest crop damage.
+This analysis investigated the economic cost and impact on public health of storms and other severe weather events using the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database.  The data was aggregated by event type for each of the main data points, property & crop damage, fatalities and injuries, before plotting the top 10 events for each.
 
 ## Data Processing
 
@@ -33,7 +33,14 @@ if(!file.exists(fname)){
 data = read.table(fname, sep=",", header = TRUE)
 ```
 
-Population health is defined as fatalities and injuries (per event type).  The fatalitiies and injuries for each event type are summed together for later display.
+There is a mix of upper and lower case event types.  Make them all upper case so they will be aggregated together.
+
+```{r}
+# consistent case for event types
+data$EVTYPE = toupper(data$EVTYPE)
+```
+
+Population health is defined as fatalities and injuries (per event type).  Fatalitiies and injuries are aggregated per each event type.
 
 ```{r}
 # fatalities
@@ -47,7 +54,7 @@ iByType <- iByType[order(iByType$INJURIES, decreasing = TRUE), ]
 iByType <- iByType[1:10,] # interest in top 10
 ```
 
-Economic consequences is defined as property and crop damage (per event type).  The property and crop damage for each event type are summed together for later display.
+Economic consequences is defined as property and crop damage (per event type).
 
 PROPDMGEXP and CROPDMGEXP indicate the units for PROPDMG and CROPDMG.
 
@@ -65,7 +72,11 @@ library(car)
 data$PROPDMG_TOT <- data$PROPDMG*as.numeric(recode(data$PROPDMGEXP, "'0'=10;'1'=10;'2'=10;'3'=10;'4'=10;'5'=10;'6'=10;'7'=10;'8'=10;'B'=10^9;'h'=10^2;'H'=10^2;'K'=10^3;'m'=10^6;'M'=10^6;'-'=0;'?'=0;'+'=1", as.factor.result = FALSE))
 
 data$CROPDMG_TOT <- data$CROPDMG*as.numeric(recode(data$CROPDMGEXP, "'0'=10;'2'=10;'B'=10^9;'k'=10^3;'K'=10^3;'m'=10^6;'M'=10^6;''=0;'?'=0", as.factor.result = FALSE))
+```
 
+Property and crop damage are aggregated per each event type.
+
+```{r}
 # property damage
 pByType <- aggregate(PROPDMG_TOT ~ EVTYPE , data, sum, na.rm = TRUE)
 pByType <- pByType[order(pByType$PROPDMG_TOT, decreasing = TRUE), ]
@@ -108,3 +119,7 @@ barplot(cByType$CROPDMG_TOT/10^9, names.arg = cByType$EVTYPE, las = 3, col = "li
 
 title("Top 10 Weather Events (1950-2011)", outer = TRUE)
 ```
+
+### Conclusion
+
+Over the 60 years (1950-2011) that data was collected, Tornadoes have had the greatest impact to public health (injuries and fatalities), floods have inflicted the greatest property damage and droughts are responsible for the greatest crop damage.
